@@ -1,0 +1,55 @@
+.ms-welcome {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.ms-welcome__header {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.ms-welcome__main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1 0 auto;
+    width: 100%;
+    padding: 20px;
+}
+
+.ms-welcome__features {
+    list-style-type: none;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    padding: 0;
+}
+
+.ms-welcome__features.ms-List .ms-ListItem {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.ms-welcome__features .ms-Icon {
+    margin-right: 10px;
+}
+
+.ms-welcome__action.ms-Button--hero {
+    margin-top: 30px;
+}
+
+.ms-welcome__progress {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
