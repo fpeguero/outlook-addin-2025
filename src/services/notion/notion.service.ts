@@ -3,6 +3,8 @@ import { Client } from "@notionhq/client";
 import { IDropdownOption } from "@fluentui/react";
 import { StorageService } from "../storage/storage.service";
 import { TaskData } from "../../types/notion.types";
+import { EmailService } from "../email/email.service";
+import { splitContentIntoBlocks } from "../../utils/content-splitter";
 
 export class NotionService {
   private static instance: NotionService;
@@ -48,7 +50,6 @@ export class NotionService {
     }
   }
 
-  // Añadir estos métodos a la clase NotionService
 
   async createPlanificacionTask(taskData: TaskData): Promise<string> {
     try {
@@ -57,14 +58,45 @@ export class NotionService {
         throw new Error('Planificación database ID not configured');
       }
 
+      const item = Office.context.mailbox.item;
+      const emailDate = item?.dateTimeCreated || new Date();
+
+      // Obtener el contenido formateado del correo
+      const emailService = EmailService.getInstance();
+      const emailContent = await emailService.getFormattedEmailDetails();
+
+      // Dividir el contenido en bloques
+      const contentBlocks = splitContentIntoBlocks(emailContent);
+
+      
+      // Crear los bloques de contenido para Notion
+      const contentChildren = contentBlocks.map(block => ({
+        object: "block",
+        type: "paragraph",
+        paragraph: {
+          rich_text: [
+            {
+              type: "text",
+              text: {
+                content: block
+              }
+            }
+          ]
+        }
+      }));
+
       const response = await this.fetchNotion(`/pages`, {
         method: 'POST',
         body: JSON.stringify({
-          parent: { database_id: config.notionDatabases.planificacion },
+          parent: { 
+            database_id: config.notionDatabases.planificacion 
+          },
           properties: {
             "Tarea": {
+              type: "title",
               title: [
                 {
+                  type: "text",
                   text: {
                     content: taskData.title
                   }
@@ -72,6 +104,7 @@ export class NotionService {
               ]
             },
             "Sistema": {
+              type: "relation",
               relation: [
                 {
                   id: taskData.sistemaId
@@ -79,23 +112,28 @@ export class NotionService {
               ]
             },
             "Tipo": {
+              type: "select",
               select: {
                 name: taskData.tipo
               }
             },
             "Tema": {
+              type: "select",
               select: {
                 name: taskData.tema
               }
             },
             "Via": {
+              type: "select",
               select: {
                 name: "Correo"
               }
             },
             "Próximos Pasos": {
+              type: "rich_text",
               rich_text: [
                 {
+                  type: "text",
                   text: {
                     content: taskData.proximosPasos || ""
                   }
@@ -103,8 +141,10 @@ export class NotionService {
               ]
             },
             "Resultado Esperado": {
+              type: "rich_text",
               rich_text: [
                 {
+                  type: "text",
                   text: {
                     content: taskData.resultadoEsperado || ""
                   }
@@ -112,14 +152,55 @@ export class NotionService {
               ]
             },
             "MsgUrl": {
+              type: "url",
               url: taskData.messageUrl || null
             },
             "Fecha_Solicitud": {
+              type: "date",
               date: {
-                start: new Date().toISOString()
+                start: emailDate.toISOString()
               }
             }
-          }
+          },
+          children: [
+            {
+              object: "block",
+              type: "callout",
+              callout: {
+                rich_text: [
+                  {
+                    type: "text",
+                    text: {
+                      content: "📧 Este registro fue creado desde Outlook"
+                    }
+                  }
+                ],
+                color: "blue_background"
+              }
+            },
+            {
+              object: "block",
+              type: "paragraph",
+              paragraph: {
+                rich_text: []
+              }
+            },
+            {
+              object: "block",
+              type: "heading_2",
+              heading_2: {
+                rich_text: [
+                  {
+                    type: "text",
+                    text: {
+                      content: "Contenido del Correo Original"
+                    }
+                  }
+                ]
+              }
+            },
+            ...contentChildren
+          ]
         })
       });
 
@@ -130,7 +211,165 @@ export class NotionService {
     }
   }
 
-  
+
+  // async createPlanificacionTask(taskData: TaskData): Promise<string> {
+  //   try {
+  //     const config = await this.storageService.getConfig();
+  //     if (!config.notionDatabases?.planificacion) {
+  //       throw new Error('Planificación database ID not configured');
+  //     }
+
+  //     const item = Office.context.mailbox.item;
+  //     const emailDate = item?.dateTimeCreated || new Date();
+
+  //     // Obtener el contenido formateado del correo
+  //     const emailService = EmailService.getInstance();
+  //     const emailContent = await emailService.getFormattedEmailDetails();
+
+  //     // Log para debug
+  //     console.log('Creating Planificacion task with data:', taskData);
+
+  //     const response = await this.fetchNotion(`/pages`, {
+  //       method: 'POST',
+  //       body: JSON.stringify({
+  //         parent: { 
+  //           database_id: config.notionDatabases.planificacion 
+  //         },
+  //         properties: {
+  //           "Tarea": {
+  //             type: "title",
+  //             title: [
+  //               {
+  //                 type: "text",
+  //                 text: {
+  //                   content: taskData.title
+  //                 }
+  //               }
+  //             ]
+  //           },
+  //           "Sistema": {
+  //             type: "relation",
+  //             relation: [
+  //               {
+  //                 id: taskData.sistemaId
+  //               }
+  //             ]
+  //           },
+  //           "Tipo": {
+  //             type: "select",
+  //             select: {
+  //               name: taskData.tipo
+  //             }
+  //           },
+  //           "Tema": {
+  //             type: "select",
+  //             select: {
+  //               name: taskData.tema
+  //             }
+  //           },
+  //           "Via": {
+  //             type: "select",
+  //             select: {
+  //               name: "Correo"
+  //             }
+  //           },
+  //           "Próximos Pasos": {
+  //             type: "rich_text",
+  //             rich_text: [
+  //               {
+  //                 type: "text",
+  //                 text: {
+  //                   content: taskData.proximosPasos || ""
+  //                 }
+  //               }
+  //             ]
+  //           },
+  //           "Resultado Esperado": {
+  //             type: "rich_text",
+  //             rich_text: [
+  //               {
+  //                 type: "text",
+  //                 text: {
+  //                   content: taskData.resultadoEsperado || ""
+  //                 }
+  //               }
+  //             ]
+  //           },
+  //           "MsgUrl": {
+  //             type: "url",
+  //             url: taskData.messageUrl || null
+  //           },
+  //           "Fecha_Solicitud": {
+  //             type: "date",
+  //             date: {
+  //               start: emailDate.toISOString()
+  //             }
+  //           }
+  //         },
+  //         children: [
+  //           {
+  //             object: "block",
+  //             type: "callout",
+  //             callout: {
+  //               rich_text: [
+  //                 {
+  //                   type: "text",
+  //                   text: {
+  //                     content: "📧 Este registro fue creado desde Outlook"
+  //                   }
+  //                 }
+  //               ],
+  //               color: "blue_background"
+  //             }
+  //           },
+  //           {
+  //             object: "block",
+  //             type: "paragraph",
+  //             paragraph: {
+  //               rich_text: []
+  //             }
+  //           },
+  //           {
+  //             object: "block",
+  //             type: "toggle",
+  //             toggle: {
+  //               rich_text: [
+  //                 {
+  //                   type: "text",
+  //                   text: {
+  //                     content: "Contenido del Correo Original"
+  //                   }
+  //                 }
+  //               ],
+  //               children: [
+  //                 {
+  //                   object: "block",
+  //                   type: "paragraph",
+  //                   paragraph: {
+  //                     rich_text: [
+  //                       {
+  //                         type: "text",
+  //                         text: {
+  //                           content: emailContent
+  //                         }
+  //                       }
+  //                     ]
+  //                   }
+  //                 }
+  //               ]
+  //             }
+  //           }
+  //         ]
+  //       })
+  //     });
+
+  //     return response.id;
+  //   } catch (error) {
+  //     console.error('Error creating planificacion task:', error);
+  //     throw error;
+  //   }
+  // }
+
 
   async createTareaFromPlanificacion(planificacionId: string, taskData: TaskData): Promise<string> {
     try {
@@ -138,6 +377,10 @@ export class NotionService {
       if (!config.notionDatabases?.tareas) {
         throw new Error('Tareas database ID not configured');
       }
+
+      // Obtener la fecha del correo desde el messageUrl
+      const item = Office.context.mailbox.item;
+      const emailDate = item?.dateTimeCreated || new Date();
 
       const response = await this.fetchNotion(`/pages`, {
         method: 'POST',
@@ -181,18 +424,36 @@ export class NotionService {
                 name: taskData.tipo
               }
             },
+            "Próximos Pasos": {
+              rich_text: [
+                {
+                  text: {
+                    content: taskData.proximosPasos || ""
+                  }
+                }
+              ]
+            },
+            "Resultado Esperado": {
+              rich_text: [
+                {
+                  text: {
+                    content: taskData.resultadoEsperado || ""
+                  }
+                }
+              ]
+            },
             "Description": {
               rich_text: [
                 {
                   text: {
-                    content: `Próximos Pasos:\n${taskData.proximosPasos || ""}\n\nResultado Esperado:\n${taskData.resultadoEsperado || ""}\n\nEmail: ${taskData.messageUrl}`
+                    content: `Correo: ${taskData.messageUrl}`
                   }
                 }
               ]
             },
             "Fecha": {
               date: {
-                start: new Date().toISOString()
+                start: emailDate.toISOString()
               }
             }
           }
